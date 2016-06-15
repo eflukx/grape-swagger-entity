@@ -8,17 +8,28 @@ module GrapeSwagger
         @model = model
         @endpoint = endpoint
       end
+      
+      def parameters
+        @parameters ||=
+            -> {
+              # TODO: this should only be a temporary hack ;)
+              if ::GrapeEntity::VERSION =~ /0\.4\.\d/
+                parameters = model.exposures ? model.exposures : model.documentation
+              elsif ::GrapeEntity::VERSION =~ /0\.5\.\d/
+                parameters = model.root_exposures.each_with_object({}) do |value, memo|
+                  memo[value.attribute] = value.send(:options)
+                end
+              end
+
+              # Get constant when :using Entity is defined as a String
+              parameters.inject(parameters) do |parm, (k, v)|
+                parm[k][:using] = Kernel.const_get(v[:using]) if v[:using].is_a?(String)
+                parm
+              end
+            }.call
+      end
 
       def call
-        # TODO: this should only be a temporary hack ;)
-        if ::GrapeEntity::VERSION =~ /0\.4\.\d/
-          parameters = model.exposures ? model.exposures : model.documentation
-        elsif ::GrapeEntity::VERSION =~ /0\.5\.\d/
-          parameters = model.root_exposures.each_with_object({}) do |value, memo|
-            memo[value.attribute] = value.send(:options)
-          end
-        end
-
         parse_grape_entity_params(parameters)
       end
 
